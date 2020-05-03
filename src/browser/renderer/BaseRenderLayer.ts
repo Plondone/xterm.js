@@ -373,74 +373,62 @@ export abstract class BaseRenderLayer implements IRenderLayer {
   }
 
   private _drawBoxChar(cell: ICellData, x: number, y: number): boolean {
-    const code = boxDrawingLineCodes[cell.getChars()];
-    if (!code) {
+    const ops = boxDrawingLineElements[cell.getChars()];
+    if (!ops) {
       return false;
     }
 
-    // TODO: Clean below
-    this._ctx.strokeStyle = this._ctx.fillStyle;
-    this._ctx.lineWidth = window.devicePixelRatio; 
-
     const scale = window.devicePixelRatio;
-    const horizontalCenter = this._scaledCellWidth / 2.0;
-    const verticalCenter = this._scaledCellHeight / 2.0;
-    const xs = [
-        0,
-        horizontalCenter - scale,
-        horizontalCenter - scale/2,
-        horizontalCenter,
-        horizontalCenter + scale/2,
-        horizontalCenter + scale,
-        this._scaledCellWidth
-    ];
-    const ys = [
-        0,
-        verticalCenter - scale,
-        verticalCenter - scale/2,
-        verticalCenter,
-        verticalCenter + scale/2,
-        verticalCenter + scale,
-        this._scaledCellHeight
-    ];
-    const xoffset = x * this._scaledCellWidth + this._scaledCharLeft;
-    const yoffset = y * this._scaledCellHeight + this._scaledCharTop;
+    this._ctx.strokeStyle = this._ctx.fillStyle;
+    this._ctx.lineWidth = scale; 
 
-    let lastX = -1;
-    let lastY = -1;
-    let i = 0;
-    while (i + 4 <= code.length) {
-      const x1 = code[i++].charCodeAt(0) - 'a'.charCodeAt(0);
-      const y1 = code[i++].charCodeAt(0) - '1'.charCodeAt(0);
-      const x2 = code[i++].charCodeAt(0) - 'a'.charCodeAt(0);
-      const y2 = code[i++].charCodeAt(0) - '1'.charCodeAt(0);
-      if (x1 != lastX || y1 != lastY) {
+    const xOffset = x * this._scaledCellWidth + this._scaledCharLeft;
+    const yOffset = y * this._scaledCellHeight + this._scaledCharTop;
+    const horizontalCenter = this._scaledCellWidth / 2;
+    const verticalCenter = this._scaledCellHeight / 2;
+    const xPoints = [
+        xOffset,
+        xOffset + horizontalCenter - scale,
+        xOffset + horizontalCenter - scale/2,
+        xOffset + horizontalCenter,
+        xOffset + horizontalCenter + scale/2,
+        xOffset + horizontalCenter + scale,
+        xOffset + this._scaledCellWidth
+    ];
+    const yPoints = [
+        yOffset,
+        yOffset + verticalCenter - scale,
+        yOffset + verticalCenter - scale/2,
+        yOffset + verticalCenter,
+        yOffset + verticalCenter + scale/2,
+        yOffset + verticalCenter + scale,
+        yOffset + this._scaledCellHeight
+    ];
+
+    for (let i = 0; i < ops.length; i++) {
+      const op = ops[i];
+
+      if (i === 0 || (op.x1 !== ops[i-1].x2 || op.y1 !== ops[i-1].y2)) {
         this._ctx.beginPath();
-        this._ctx.moveTo(xoffset + xs[x1], yoffset + ys[y1]);
+        this._ctx.moveTo(xPoints[op.x1], yPoints[op.y1]);
       }
 
-      if (i < code.length && code[i] != " ") {
-        const cx1 = code[i++].charCodeAt(0) - 'a'.charCodeAt(0);
-        const cy1 = code[i++].charCodeAt(0) - '1'.charCodeAt(0);
-        const cx2 = code[i++].charCodeAt(0) - 'a'.charCodeAt(0);
-        const cy2 = code[i++].charCodeAt(0) - '1'.charCodeAt(0);
+      // TODO: convert this to an interface or something
+      if (typeof op.cx1 !== "undefined") {
+        // Draw curve
         this._ctx.bezierCurveTo(
-          xoffset + xs[cx1],
-          yoffset + ys[cy1],
-          xoffset + xs[cx2],
-          yoffset + ys[cy2],
-          xoffset + xs[x2],
-          yoffset + ys[y2]);
-        this._ctx.stroke();
+          xPoints[op.cx1],
+          yPoints[op.cy1],
+          xPoints[op.cx2],
+          yPoints[op.cy2],
+          xPoints[op.x2],
+          yPoints[op.y2]);
       } else {
-        this._ctx.lineTo(xoffset + xs[x2], yoffset + ys[y2]);
-        this._ctx.stroke();
+        // Draw line
+        this._ctx.lineTo(xPoints[op.x2], yPoints[op.y2]);
       }
 
-      i++;
-
-      lastX = x2;
-      lastY = y2;
+      this._ctx.stroke();
     }
 
     return true;
@@ -555,121 +543,123 @@ export abstract class BaseRenderLayer implements IRenderLayer {
   }
 }
 
-const boxDrawingLineCodes: { [index: string]: string } = {
-  "─": "a4g4",
-  "━": "a3g3 a5g5",
-  "│": "d1d7",
-  "┃": "c1c7 e1e7",
-  "┌": "g4d4 d4d7",
-  "┍": "g3d3 d3d7 g5d5",
-  "┎": "g4c4 c4c7 e4e7",
-  "┏": "g3c3 c3c7 g5e5 e5e7",
-  "┐": "a4d4 d4d7",
-  "┑": "a3d3 d3d7 a5d5",
-  "┒": "a4e4 e4e7 c4c7",
-  "┓": "a3e3 e3e7 a5c5 c5c7",
-  "└": "d1d4 d4g4",
-  "┕": "d1d5 d5g5 d3g3",
-  "┖": "c1c4 c4g4 e1e4",
-  "┗": "c1c5 c5g5 e1e3 e3g3",
-  "┘": "a4d4 d4d1",
-  "┙": "a5d5 d5d1 a3d3",
-  "┚": "a4e4 e4e1 c4c1",
-  "┛": "a5e5 e5e1 a3c3 c3c1",
-  "├": "d1d7 d4g4",
-  "┝": "d1d7 d3g3 d5g5",
-  "┞": "c1c4 e1e4 e4g4 d4d7",
-  "┟": "d1d4 d4g4 c4c7 e4e7",
-  "┠": "c1c7 e1e7 e4g4",
-  "┡": "c1c4 c4g4 e1e3 e3g3 d4d7",
-  "┢": "d1d4 c7c3 c3g3 e7e5 e5g5",
-  "┣": "c1c7 e1e3 e3g3 g5e5 e5e7",
-  "┤": "d1d7 a4d4",
-  "┥": "d1d7 a3d3 a5d5",
-  "┦": "c1c4 e1e4 a4d4 d4d7",
-  "┧": "d1d4 d4a4 c4c7 e4e7",
-  "┨": "a4c4 c1c7 e1e7",
-  "┩": "c1c3 c3a3 e1e5 e5a5 d4d7",
-  "┪": "a3d3 d3d7 a5c5 c5c7 d1d4",
-  "┫": "a3c3 c3c1 a5c5 c5c7 e1e7",
-  "┬": "a4g4 d4d7",
-  "┭": "a3d3 a5d5 d7d4 d4g4",
-  "┮": "a4d4 d4d7 d3g3 d5g5",
-  "┯": "a3g3 a5g5 d5d7",
-  "┰": "a4g4 c4c7 e4e7",
-  "┱": "a3e3 e3e7 a5c5 c5c7 d4g4",
-  "┲": "a4d4 c7c3 c3g3 e7e5 e5g5",
-  "┳": "a3g3 a5c5 c5c7 e7e5 e5g5",
-  "┴": "a4g4 d1d4",
-  "┵": "d1d4 d4g4 a3d3 a5d5",
-  "┶": "a4d4 d4d1 d3g3 d5g5",
-  "┷": "a3g3 a5g5 d1d4",
-  "┸": "a4g4 c1c4 e1e4",
-  "┹": "a3c3 c3c1 a5e5 e5e1 d4g4",
-  "┺": "a4d4 c1c5 c5g5 d1d3 d3g3",
-  "┻": "a5g5 a3c3 c3c1 e1e3 e3g3",
-  "┼": "a4g4 d1d7",
-  "┽": "d1d7 d4g4 a3d3 a5d5",
-  "┾": "d1d7 a4d4 d3g3 d5g5",
-  "┿": "d1d7 a3g3 a5g5",
-  "╀": "a4g4 d4d7 c1c4 e1e4",
-  "╁": "a4g4 d1d4 c4c7 e4e7",
-  "╂": "a4g4 c1c7 e1e7",
-  "╃": "a3c3 c3c1 a5e5 e5e1 d7d4 d4g4",
-  "╄": "a4d4 d4d7 c1c5 c5g5 e1e3 e3g3",
-  "╅": "d1d4 d4g4 a3e3 e3e7 a5c5 c5c7",
-  "╆": "a4d4 d4d1 c7c3 c3g3 e7e5 e5g5",
-  "╇": "a5g5 a3c3 c3c1 e1e3 e3g3 d4d7",
-  "╈": "d1d4 a3g3 a5c5 c5c7 e7e5 e5g5",
-  "╉": "a3c3 c3c1 a5c5 c5c7 e1e7 d4g4",
-  "╊": "a4c4 c1c7 e1e3 e3g3 e7e5 e5g5",
-  "╋": "a3g3 a5g5 c1c7 e1e7",
-  "═": "a2g2 a6g6",
-  "║": "b1b7 f1f7",
-  "╒": "g2d2 d2d7 g6d6",
-  "╓": "g4b4 b4b7 f4f7",
-  "╔": "g2b2 b2b7 g6f6 f6f7",
-  "╕": "a2d2 d2d7 a6d6",
-  "╖": "a4f4 f4f7 b4b7",
-  "╗": "a2f2 f2f7 a6b6 b6b7",
-  "╘": "d1d6 d6g6 d2g2",
-  "╙": "b1b4 b4g4 f1f4",
-  "╚": "b1b6 b6g6 f1f2 f2g2",
-  "╛": "a2d2 a6d6 d6d1",
-  "╜": "a4f4 f4f1 b4b1",
-  "╝": "a2b2 b2b1 a6f6 f6f1",
-  "╞": "d1d7 d2g2 d6g6",
-  "╟": "b1b7 f1f7 f4g4",
-  "╠": "b1b7 f1f2 f2g2 f7f6 f6g6",
-  "╡": "d1d7 a2d2 a6d6",
-  "╢": "a4b4 b1b7 f1f7",
-  "╣": "a2b2 b2b1 a6b6 b6b7 f1f7",
-  "╤": "a2g2 a6g6 d6d7",
-  "╥": "a4g4 b4b7 f4f7",
-  "╦": "a2g2 a6b6 b6b7 f7f6 f6g6",
-  "╧": "a6g6 a2g2 d1d2",
-  "╨": "a4g4 b1b4 f1f4",
-  "╩": "a2b2 b2b1 f1f2 f2g2 a6g6",
-  "╪": "a2g2 a6g6 d1d7",
-  "╫": "b1b7 f1f7 a4g4",
-  "╬": "a2b2 b2b1 f1f2 f2g2 g6f6 f6f7 b7b6 b6a6",
-  "╭": "g4d7d4d4",
-  "╮": "a4d7d4d4",
-  "╯": "a4d1d4d4",
-  "╰": "d1g4d4d4",
-  "╱": "a7g1",
-  "╲": "a1g7",
-  "╳": "a7g1 a1g7",
-  "╴": "a4d4",
-  "╵": "d1d4",
-  "╶": "d4g4",
-  "╷": "d4d7",
-  "╸": "a3d3 a5d5",
-  "╹": "c1c4 e1e4",
-  "╺": "d3g3 d5g5",
-  "╻": "c4c7 e4e7",
-  "╼": "a4d4 d3g3 d5g5",
-  "╽": "d1d4 c4c7 e4e7",
-  "╾": "a3d3 a5d5 d4g4",
-  "╿": "c1c4 e1e4 d4d7"
-};
+// TODO: define type for contents
+const boxDrawingLineElements: { [index: string]: any } = {
+  "─": [{x1: 0, y1: 3, x2: 6, y2: 3}],
+  "━": [{x1: 0, y1: 2, x2: 6, y2: 2}, {x1: 0, y1: 4, x2: 6, y2: 4}],
+  "│": [{x1: 3, y1: 0, x2: 3, y2: 6}],
+  "┃": [{x1: 2, y1: 0, x2: 2, y2: 6}, {x1: 4, y1: 0, x2: 4, y2: 6}],
+  "┌": [{x1: 6, y1: 3, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 3, y2: 6}],
+  "┍": [{x1: 6, y1: 2, x2: 3, y2: 2}, {x1: 3, y1: 2, x2: 3, y2: 6}, {x1: 6, y1: 4, x2: 3, y2: 4}],
+  "┎": [{x1: 6, y1: 3, x2: 2, y2: 3}, {x1: 2, y1: 3, x2: 2, y2: 6}, {x1: 4, y1: 3, x2: 4, y2: 6}],
+  "┏": [{x1: 6, y1: 2, x2: 2, y2: 2}, {x1: 2, y1: 2, x2: 2, y2: 6}, {x1: 6, y1: 4, x2: 4, y2: 4}, {x1: 4, y1: 4, x2: 4, y2: 6}],
+  "┐": [{x1: 0, y1: 3, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 3, y2: 6}],
+  "┑": [{x1: 0, y1: 2, x2: 3, y2: 2}, {x1: 3, y1: 2, x2: 3, y2: 6}, {x1: 0, y1: 4, x2: 3, y2: 4}],
+  "┒": [{x1: 0, y1: 3, x2: 4, y2: 3}, {x1: 4, y1: 3, x2: 4, y2: 6}, {x1: 2, y1: 3, x2: 2, y2: 6}],
+  "┓": [{x1: 0, y1: 2, x2: 4, y2: 2}, {x1: 4, y1: 2, x2: 4, y2: 6}, {x1: 0, y1: 4, x2: 2, y2: 4}, {x1: 2, y1: 4, x2: 2, y2: 6}],
+  "└": [{x1: 3, y1: 0, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 6, y2: 3}],
+  "┕": [{x1: 3, y1: 0, x2: 3, y2: 4}, {x1: 3, y1: 4, x2: 6, y2: 4}, {x1: 3, y1: 2, x2: 6, y2: 2}],
+  "┖": [{x1: 2, y1: 0, x2: 2, y2: 3}, {x1: 2, y1: 3, x2: 6, y2: 3}, {x1: 4, y1: 0, x2: 4, y2: 3}],
+  "┗": [{x1: 2, y1: 0, x2: 2, y2: 4}, {x1: 2, y1: 4, x2: 6, y2: 4}, {x1: 4, y1: 0, x2: 4, y2: 2}, {x1: 4, y1: 2, x2: 6, y2: 2}],
+  "┘": [{x1: 0, y1: 3, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 3, y2: 0}],
+  "┙": [{x1: 0, y1: 4, x2: 3, y2: 4}, {x1: 3, y1: 4, x2: 3, y2: 0}, {x1: 0, y1: 2, x2: 3, y2: 2}],
+  "┚": [{x1: 0, y1: 3, x2: 4, y2: 3}, {x1: 4, y1: 3, x2: 4, y2: 0}, {x1: 2, y1: 3, x2: 2, y2: 0}],
+  "┛": [{x1: 0, y1: 4, x2: 4, y2: 4}, {x1: 4, y1: 4, x2: 4, y2: 0}, {x1: 0, y1: 2, x2: 2, y2: 2}, {x1: 2, y1: 2, x2: 2, y2: 0}],
+  "├": [{x1: 3, y1: 0, x2: 3, y2: 6}, {x1: 3, y1: 3, x2: 6, y2: 3}],
+  "┝": [{x1: 3, y1: 0, x2: 3, y2: 6}, {x1: 3, y1: 2, x2: 6, y2: 2}, {x1: 3, y1: 4, x2: 6, y2: 4}],
+  "┞": [{x1: 2, y1: 0, x2: 2, y2: 3}, {x1: 4, y1: 0, x2: 4, y2: 3}, {x1: 4, y1: 3, x2: 6, y2: 3}, {x1: 3, y1: 3, x2: 3, y2: 6}],
+  "┟": [{x1: 3, y1: 0, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 6, y2: 3}, {x1: 2, y1: 3, x2: 2, y2: 6}, {x1: 4, y1: 3, x2: 4, y2: 6}],
+  "┠": [{x1: 2, y1: 0, x2: 2, y2: 6}, {x1: 4, y1: 0, x2: 4, y2: 6}, {x1: 4, y1: 3, x2: 6, y2: 3}],
+  "┡": [{x1: 2, y1: 0, x2: 2, y2: 3}, {x1: 2, y1: 3, x2: 6, y2: 3}, {x1: 4, y1: 0, x2: 4, y2: 2}, {x1: 4, y1: 2, x2: 6, y2: 2}, {x1: 3, y1: 3, x2: 3, y2: 6}],
+  "┢": [{x1: 3, y1: 0, x2: 3, y2: 3}, {x1: 2, y1: 6, x2: 2, y2: 2}, {x1: 2, y1: 2, x2: 6, y2: 2}, {x1: 4, y1: 6, x2: 4, y2: 4}, {x1: 4, y1: 4, x2: 6, y2: 4}],
+  "┣": [{x1: 2, y1: 0, x2: 2, y2: 6}, {x1: 4, y1: 0, x2: 4, y2: 2}, {x1: 4, y1: 2, x2: 6, y2: 2}, {x1: 6, y1: 4, x2: 4, y2: 4}, {x1: 4, y1: 4, x2: 4, y2: 6}],
+  "┤": [{x1: 3, y1: 0, x2: 3, y2: 6}, {x1: 0, y1: 3, x2: 3, y2: 3}],
+  "┥": [{x1: 3, y1: 0, x2: 3, y2: 6}, {x1: 0, y1: 2, x2: 3, y2: 2}, {x1: 0, y1: 4, x2: 3, y2: 4}],
+  "┦": [{x1: 2, y1: 0, x2: 2, y2: 3}, {x1: 4, y1: 0, x2: 4, y2: 3}, {x1: 0, y1: 3, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 3, y2: 6}],
+  "┧": [{x1: 3, y1: 0, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 0, y2: 3}, {x1: 2, y1: 3, x2: 2, y2: 6}, {x1: 4, y1: 3, x2: 4, y2: 6}],
+  "┨": [{x1: 0, y1: 3, x2: 2, y2: 3}, {x1: 2, y1: 0, x2: 2, y2: 6}, {x1: 4, y1: 0, x2: 4, y2: 6}],
+  "┩": [{x1: 2, y1: 0, x2: 2, y2: 2}, {x1: 2, y1: 2, x2: 0, y2: 2}, {x1: 4, y1: 0, x2: 4, y2: 4}, {x1: 4, y1: 4, x2: 0, y2: 4}, {x1: 3, y1: 3, x2: 3, y2: 6}],
+  "┪": [{x1: 0, y1: 2, x2: 3, y2: 2}, {x1: 3, y1: 2, x2: 3, y2: 6}, {x1: 0, y1: 4, x2: 2, y2: 4}, {x1: 2, y1: 4, x2: 2, y2: 6}, {x1: 3, y1: 0, x2: 3, y2: 3}],
+  "┫": [{x1: 0, y1: 2, x2: 2, y2: 2}, {x1: 2, y1: 2, x2: 2, y2: 0}, {x1: 0, y1: 4, x2: 2, y2: 4}, {x1: 2, y1: 4, x2: 2, y2: 6}, {x1: 4, y1: 0, x2: 4, y2: 6}],
+  "┬": [{x1: 0, y1: 3, x2: 6, y2: 3}, {x1: 3, y1: 3, x2: 3, y2: 6}],
+  "┭": [{x1: 0, y1: 2, x2: 3, y2: 2}, {x1: 0, y1: 4, x2: 3, y2: 4}, {x1: 3, y1: 6, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 6, y2: 3}],
+  "┮": [{x1: 0, y1: 3, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 3, y2: 6}, {x1: 3, y1: 2, x2: 6, y2: 2}, {x1: 3, y1: 4, x2: 6, y2: 4}],
+  "┯": [{x1: 0, y1: 2, x2: 6, y2: 2}, {x1: 0, y1: 4, x2: 6, y2: 4}, {x1: 3, y1: 4, x2: 3, y2: 6}],
+  "┰": [{x1: 0, y1: 3, x2: 6, y2: 3}, {x1: 2, y1: 3, x2: 2, y2: 6}, {x1: 4, y1: 3, x2: 4, y2: 6}],
+  "┱": [{x1: 0, y1: 2, x2: 4, y2: 2}, {x1: 4, y1: 2, x2: 4, y2: 6}, {x1: 0, y1: 4, x2: 2, y2: 4}, {x1: 2, y1: 4, x2: 2, y2: 6}, {x1: 3, y1: 3, x2: 6, y2: 3}],
+  "┲": [{x1: 0, y1: 3, x2: 3, y2: 3}, {x1: 2, y1: 6, x2: 2, y2: 2}, {x1: 2, y1: 2, x2: 6, y2: 2}, {x1: 4, y1: 6, x2: 4, y2: 4}, {x1: 4, y1: 4, x2: 6, y2: 4}],
+  "┳": [{x1: 0, y1: 2, x2: 6, y2: 2}, {x1: 0, y1: 4, x2: 2, y2: 4}, {x1: 2, y1: 4, x2: 2, y2: 6}, {x1: 4, y1: 6, x2: 4, y2: 4}, {x1: 4, y1: 4, x2: 6, y2: 4}],
+  "┴": [{x1: 0, y1: 3, x2: 6, y2: 3}, {x1: 3, y1: 0, x2: 3, y2: 3}],
+  "┵": [{x1: 3, y1: 0, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 6, y2: 3}, {x1: 0, y1: 2, x2: 3, y2: 2}, {x1: 0, y1: 4, x2: 3, y2: 4}],
+  "┶": [{x1: 0, y1: 3, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 3, y2: 0}, {x1: 3, y1: 2, x2: 6, y2: 2}, {x1: 3, y1: 4, x2: 6, y2: 4}],
+  "┷": [{x1: 0, y1: 2, x2: 6, y2: 2}, {x1: 0, y1: 4, x2: 6, y2: 4}, {x1: 3, y1: 0, x2: 3, y2: 3}],
+  "┸": [{x1: 0, y1: 3, x2: 6, y2: 3}, {x1: 2, y1: 0, x2: 2, y2: 3}, {x1: 4, y1: 0, x2: 4, y2: 3}],
+  "┹": [{x1: 0, y1: 2, x2: 2, y2: 2}, {x1: 2, y1: 2, x2: 2, y2: 0}, {x1: 0, y1: 4, x2: 4, y2: 4}, {x1: 4, y1: 4, x2: 4, y2: 0}, {x1: 3, y1: 3, x2: 6, y2: 3}],
+  "┺": [{x1: 0, y1: 3, x2: 3, y2: 3}, {x1: 2, y1: 0, x2: 2, y2: 4}, {x1: 2, y1: 4, x2: 6, y2: 4}, {x1: 3, y1: 0, x2: 3, y2: 2}, {x1: 3, y1: 2, x2: 6, y2: 2}],
+  "┻": [{x1: 0, y1: 4, x2: 6, y2: 4}, {x1: 0, y1: 2, x2: 2, y2: 2}, {x1: 2, y1: 2, x2: 2, y2: 0}, {x1: 4, y1: 0, x2: 4, y2: 2}, {x1: 4, y1: 2, x2: 6, y2: 2}],
+  "┼": [{x1: 0, y1: 3, x2: 6, y2: 3}, {x1: 3, y1: 0, x2: 3, y2: 6}],
+  "┽": [{x1: 3, y1: 0, x2: 3, y2: 6}, {x1: 3, y1: 3, x2: 6, y2: 3}, {x1: 0, y1: 2, x2: 3, y2: 2}, {x1: 0, y1: 4, x2: 3, y2: 4}],
+  "┾": [{x1: 3, y1: 0, x2: 3, y2: 6}, {x1: 0, y1: 3, x2: 3, y2: 3}, {x1: 3, y1: 2, x2: 6, y2: 2}, {x1: 3, y1: 4, x2: 6, y2: 4}],
+  "┿": [{x1: 3, y1: 0, x2: 3, y2: 6}, {x1: 0, y1: 2, x2: 6, y2: 2}, {x1: 0, y1: 4, x2: 6, y2: 4}],
+  "╀": [{x1: 0, y1: 3, x2: 6, y2: 3}, {x1: 3, y1: 3, x2: 3, y2: 6}, {x1: 2, y1: 0, x2: 2, y2: 3}, {x1: 4, y1: 0, x2: 4, y2: 3}],
+  "╁": [{x1: 0, y1: 3, x2: 6, y2: 3}, {x1: 3, y1: 0, x2: 3, y2: 3}, {x1: 2, y1: 3, x2: 2, y2: 6}, {x1: 4, y1: 3, x2: 4, y2: 6}],
+  "╂": [{x1: 0, y1: 3, x2: 6, y2: 3}, {x1: 2, y1: 0, x2: 2, y2: 6}, {x1: 4, y1: 0, x2: 4, y2: 6}],
+  "╃": [{x1: 0, y1: 2, x2: 2, y2: 2}, {x1: 2, y1: 2, x2: 2, y2: 0}, {x1: 0, y1: 4, x2: 4, y2: 4}, {x1: 4, y1: 4, x2: 4, y2: 0}, {x1: 3, y1: 6, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 6, y2: 3}],
+  "╄": [{x1: 0, y1: 3, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 3, y2: 6}, {x1: 2, y1: 0, x2: 2, y2: 4}, {x1: 2, y1: 4, x2: 6, y2: 4}, {x1: 4, y1: 0, x2: 4, y2: 2}, {x1: 4, y1: 2, x2: 6, y2: 2}],
+  "╅": [{x1: 3, y1: 0, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 6, y2: 3}, {x1: 0, y1: 2, x2: 4, y2: 2}, {x1: 4, y1: 2, x2: 4, y2: 6}, {x1: 0, y1: 4, x2: 2, y2: 4}, {x1: 2, y1: 4, x2: 2, y2: 6}],
+  "╆": [{x1: 0, y1: 3, x2: 3, y2: 3}, {x1: 3, y1: 3, x2: 3, y2: 0}, {x1: 2, y1: 6, x2: 2, y2: 2}, {x1: 2, y1: 2, x2: 6, y2: 2}, {x1: 4, y1: 6, x2: 4, y2: 4}, {x1: 4, y1: 4, x2: 6, y2: 4}],
+  "╇": [{x1: 0, y1: 4, x2: 6, y2: 4}, {x1: 0, y1: 2, x2: 2, y2: 2}, {x1: 2, y1: 2, x2: 2, y2: 0}, {x1: 4, y1: 0, x2: 4, y2: 2}, {x1: 4, y1: 2, x2: 6, y2: 2}, {x1: 3, y1: 3, x2: 3, y2: 6}],
+  "╈": [{x1: 3, y1: 0, x2: 3, y2: 3}, {x1: 0, y1: 2, x2: 6, y2: 2}, {x1: 0, y1: 4, x2: 2, y2: 4}, {x1: 2, y1: 4, x2: 2, y2: 6}, {x1: 4, y1: 6, x2: 4, y2: 4}, {x1: 4, y1: 4, x2: 6, y2: 4}],
+  "╉": [{x1: 0, y1: 2, x2: 2, y2: 2}, {x1: 2, y1: 2, x2: 2, y2: 0}, {x1: 0, y1: 4, x2: 2, y2: 4}, {x1: 2, y1: 4, x2: 2, y2: 6}, {x1: 4, y1: 0, x2: 4, y2: 6}, {x1: 3, y1: 3, x2: 6, y2: 3}],
+  "╊": [{x1: 0, y1: 3, x2: 2, y2: 3}, {x1: 2, y1: 0, x2: 2, y2: 6}, {x1: 4, y1: 0, x2: 4, y2: 2}, {x1: 4, y1: 2, x2: 6, y2: 2}, {x1: 4, y1: 6, x2: 4, y2: 4}, {x1: 4, y1: 4, x2: 6, y2: 4}],
+  "╋": [{x1: 0, y1: 2, x2: 6, y2: 2}, {x1: 0, y1: 4, x2: 6, y2: 4}, {x1: 2, y1: 0, x2: 2, y2: 6}, {x1: 4, y1: 0, x2: 4, y2: 6}],
+  "═": [{x1: 0, y1: 1, x2: 6, y2: 1}, {x1: 0, y1: 5, x2: 6, y2: 5}],
+  "║": [{x1: 1, y1: 0, x2: 1, y2: 6}, {x1: 5, y1: 0, x2: 5, y2: 6}],
+  "╒": [{x1: 6, y1: 1, x2: 3, y2: 1}, {x1: 3, y1: 1, x2: 3, y2: 6}, {x1: 6, y1: 5, x2: 3, y2: 5}],
+  "╓": [{x1: 6, y1: 3, x2: 1, y2: 3}, {x1: 1, y1: 3, x2: 1, y2: 6}, {x1: 5, y1: 3, x2: 5, y2: 6}],
+  "╔": [{x1: 6, y1: 1, x2: 1, y2: 1}, {x1: 1, y1: 1, x2: 1, y2: 6}, {x1: 6, y1: 5, x2: 5, y2: 5}, {x1: 5, y1: 5, x2: 5, y2: 6}],
+  "╕": [{x1: 0, y1: 1, x2: 3, y2: 1}, {x1: 3, y1: 1, x2: 3, y2: 6}, {x1: 0, y1: 5, x2: 3, y2: 5}],
+  "╖": [{x1: 0, y1: 3, x2: 5, y2: 3}, {x1: 5, y1: 3, x2: 5, y2: 6}, {x1: 1, y1: 3, x2: 1, y2: 6}],
+  "╗": [{x1: 0, y1: 1, x2: 5, y2: 1}, {x1: 5, y1: 1, x2: 5, y2: 6}, {x1: 0, y1: 5, x2: 1, y2: 5}, {x1: 1, y1: 5, x2: 1, y2: 6}],
+  "╘": [{x1: 3, y1: 0, x2: 3, y2: 5}, {x1: 3, y1: 5, x2: 6, y2: 5}, {x1: 3, y1: 1, x2: 6, y2: 1}],
+  "╙": [{x1: 1, y1: 0, x2: 1, y2: 3}, {x1: 1, y1: 3, x2: 6, y2: 3}, {x1: 5, y1: 0, x2: 5, y2: 3}],
+  "╚": [{x1: 1, y1: 0, x2: 1, y2: 5}, {x1: 1, y1: 5, x2: 6, y2: 5}, {x1: 5, y1: 0, x2: 5, y2: 1}, {x1: 5, y1: 1, x2: 6, y2: 1}],
+  "╛": [{x1: 0, y1: 1, x2: 3, y2: 1}, {x1: 0, y1: 5, x2: 3, y2: 5}, {x1: 3, y1: 5, x2: 3, y2: 0}],
+  "╜": [{x1: 0, y1: 3, x2: 5, y2: 3}, {x1: 5, y1: 3, x2: 5, y2: 0}, {x1: 1, y1: 3, x2: 1, y2: 0}],
+  "╝": [{x1: 0, y1: 1, x2: 1, y2: 1}, {x1: 1, y1: 1, x2: 1, y2: 0}, {x1: 0, y1: 5, x2: 5, y2: 5}, {x1: 5, y1: 5, x2: 5, y2: 0}],
+  "╞": [{x1: 3, y1: 0, x2: 3, y2: 6}, {x1: 3, y1: 1, x2: 6, y2: 1}, {x1: 3, y1: 5, x2: 6, y2: 5}],
+  "╟": [{x1: 1, y1: 0, x2: 1, y2: 6}, {x1: 5, y1: 0, x2: 5, y2: 6}, {x1: 5, y1: 3, x2: 6, y2: 3}],
+  "╠": [{x1: 1, y1: 0, x2: 1, y2: 6}, {x1: 5, y1: 0, x2: 5, y2: 1}, {x1: 5, y1: 1, x2: 6, y2: 1}, {x1: 5, y1: 6, x2: 5, y2: 5}, {x1: 5, y1: 5, x2: 6, y2: 5}],
+  "╡": [{x1: 3, y1: 0, x2: 3, y2: 6}, {x1: 0, y1: 1, x2: 3, y2: 1}, {x1: 0, y1: 5, x2: 3, y2: 5}],
+  "╢": [{x1: 0, y1: 3, x2: 1, y2: 3}, {x1: 1, y1: 0, x2: 1, y2: 6}, {x1: 5, y1: 0, x2: 5, y2: 6}],
+  "╣": [{x1: 0, y1: 1, x2: 1, y2: 1}, {x1: 1, y1: 1, x2: 1, y2: 0}, {x1: 0, y1: 5, x2: 1, y2: 5}, {x1: 1, y1: 5, x2: 1, y2: 6}, {x1: 5, y1: 0, x2: 5, y2: 6}],
+  "╤": [{x1: 0, y1: 1, x2: 6, y2: 1}, {x1: 0, y1: 5, x2: 6, y2: 5}, {x1: 3, y1: 5, x2: 3, y2: 6}],
+  "╥": [{x1: 0, y1: 3, x2: 6, y2: 3}, {x1: 1, y1: 3, x2: 1, y2: 6}, {x1: 5, y1: 3, x2: 5, y2: 6}],
+  "╦": [{x1: 0, y1: 1, x2: 6, y2: 1}, {x1: 0, y1: 5, x2: 1, y2: 5}, {x1: 1, y1: 5, x2: 1, y2: 6}, {x1: 5, y1: 6, x2: 5, y2: 5}, {x1: 5, y1: 5, x2: 6, y2: 5}],
+  "╧": [{x1: 0, y1: 5, x2: 6, y2: 5}, {x1: 0, y1: 1, x2: 6, y2: 1}, {x1: 3, y1: 0, x2: 3, y2: 1}],
+  "╨": [{x1: 0, y1: 3, x2: 6, y2: 3}, {x1: 1, y1: 0, x2: 1, y2: 3}, {x1: 5, y1: 0, x2: 5, y2: 3}],
+  "╩": [{x1: 0, y1: 1, x2: 1, y2: 1}, {x1: 1, y1: 1, x2: 1, y2: 0}, {x1: 5, y1: 0, x2: 5, y2: 1}, {x1: 5, y1: 1, x2: 6, y2: 1}, {x1: 0, y1: 5, x2: 6, y2: 5}],
+  "╪": [{x1: 0, y1: 1, x2: 6, y2: 1}, {x1: 0, y1: 5, x2: 6, y2: 5}, {x1: 3, y1: 0, x2: 3, y2: 6}],
+  "╫": [{x1: 1, y1: 0, x2: 1, y2: 6}, {x1: 5, y1: 0, x2: 5, y2: 6}, {x1: 0, y1: 3, x2: 6, y2: 3}],
+  "╬": [{x1: 0, y1: 1, x2: 1, y2: 1}, {x1: 1, y1: 1, x2: 1, y2: 0}, {x1: 5, y1: 0, x2: 5, y2: 1}, {x1: 5, y1: 1, x2: 6, y2: 1}, {x1: 6, y1: 5, x2: 5, y2: 5}, {x1: 5, y1: 5, x2: 5, y2: 6}, {x1: 1, y1: 6, x2: 1, y2: 5}, {x1: 1, y1: 5, x2: 0, y2: 5}],
+  "╭": [{x1: 6, y1: 3, x2:3, y2: 6, cx1: 3, cy1: 3, cx2: 3, cy2: 3}],
+  "╮": [{x1: 0, y1: 3, x2:3, y2: 6, cx1: 3, cy1: 3, cx2: 3, cy2: 3}],
+  "╯": [{x1: 0, y1: 3, x2:3, y2: 0, cx1: 3, cy1: 3, cx2: 3, cy2: 3}],
+  "╰": [{x1: 3, y1: 0, x2:6, y2: 3, cx1: 3, cy1: 3, cx2: 3, cy2: 3}],
+  "╱": [{x1: 0, y1: 6, x2: 6, y2: 0}],
+  "╲": [{x1: 0, y1: 0, x2: 6, y2: 6}],
+  "╳": [{x1: 0, y1: 6, x2: 6, y2: 0}, {x1: 0, y1: 0, x2: 6, y2: 6}],
+  "╴": [{x1: 0, y1: 3, x2: 3, y2: 3}],
+  "╵": [{x1: 3, y1: 0, x2: 3, y2: 3}],
+  "╶": [{x1: 3, y1: 3, x2: 6, y2: 3}],
+  "╷": [{x1: 3, y1: 3, x2: 3, y2: 6}],
+  "╸": [{x1: 0, y1: 2, x2: 3, y2: 2}, {x1: 0, y1: 4, x2: 3, y2: 4}],
+  "╹": [{x1: 2, y1: 0, x2: 2, y2: 3}, {x1: 4, y1: 0, x2: 4, y2: 3}],
+  "╺": [{x1: 3, y1: 2, x2: 6, y2: 2}, {x1: 3, y1: 4, x2: 6, y2: 4}],
+  "╻": [{x1: 2, y1: 3, x2: 2, y2: 6}, {x1: 4, y1: 3, x2: 4, y2: 6}],
+  "╼": [{x1: 0, y1: 3, x2: 3, y2: 3}, {x1: 3, y1: 2, x2: 6, y2: 2}, {x1: 3, y1: 4, x2: 6, y2: 4}],
+  "╽": [{x1: 3, y1: 0, x2: 3, y2: 3}, {x1: 2, y1: 3, x2: 2, y2: 6}, {x1: 4, y1: 3, x2: 4, y2: 6}],
+  "╾": [{x1: 0, y1: 2, x2: 3, y2: 2}, {x1: 0, y1: 4, x2: 3, y2: 4}, {x1: 3, y1: 3, x2: 6, y2: 3}],
+  "╿": [{x1: 2, y1: 0, x2: 2, y2: 3}, {x1: 4, y1: 0, x2: 4, y2: 3}, {x1: 3, y1: 3, x2: 3, y2: 6}]
+}
+
